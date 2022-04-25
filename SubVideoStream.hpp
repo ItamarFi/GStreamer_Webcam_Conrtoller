@@ -21,7 +21,7 @@ public:
 
     GstBin *getBin();
     GstPad* getLinkPad(GstPadDirection direction);
-
+    const gchar* getName();
     // void start();
     // void stop(); 
 
