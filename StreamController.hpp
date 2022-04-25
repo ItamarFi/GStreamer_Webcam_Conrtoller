@@ -10,9 +10,7 @@
 #include "VideoStream.hpp"
 #include "SubVideoStream.hpp"
 #include "Command.hpp"
-#include "Command.cpp"
 #include "CommandKey.hpp"
-
 
 class StreamController
 {
