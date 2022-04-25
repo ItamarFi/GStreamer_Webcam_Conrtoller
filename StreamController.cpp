@@ -1,7 +1,4 @@
 #include "StreamController.hpp"
-#include "CommandKey.hpp"
-#include "CommandKey.cpp"
-
 
 StreamController::StreamController(VideoStream* stream) {
     this->mainstream = stream;
@@ -17,33 +14,33 @@ StreamController::StreamController(VideoStream* stream) {
 StreamController::~StreamController() {}
 
 void StreamController::CommandsList() {
-    g_print("\n===========================\nCommands list:\nCommand\t\tDescription\n---------------------------\n");
+    g_print("%s", "\n===========================\nCommands list:\nCommand\t\tDescription\n---------------------------\n");
     // Iterate over the map using Iterator till end.
     for (auto it = (this->commands).begin(); it != (this->commands).end(); it++) {
-        g_print(it->first->getKey());
-        g_print("\t\t");
-        g_print(it->second->getDescription());
-        g_print("\n");
+        g_print("%s", it->first->getKey());
+        g_print("%s", "\t\t");
+        g_print("%s", it->second->getDescription());
+        g_print("%s", "\n");
     }
-    g_print("\t\t(Press ctrl+c for exit)");
-    g_print("\n===========================");
+    g_print("%s", "\t\t(Press ctrl+c for exit)");
+    g_print("%s", "\n===========================");
 }
 
 void StreamController::InitBasicCommands() {
     // p : Connect WebCam
     this->commands.emplace(new CommandKey("c"), new CommandConnectCam(this->mainstream));
     // p : Start playing
-    this->commands.emplace(new CommandKey("p"), new CommandStart(this->mainstream));
+    this->commands.emplace(new CommandKey("p"),  new CommandStart(this->mainstream));
     // s : Stop playing
-    this->commands.emplace(new CommandKey("s"), new CommandStop(this->mainstream));
+    this->commands.emplace(new CommandKey("s"),  new CommandStop(this->mainstream));
     // a : Pause playing
-    this->commands.emplace(new CommandKey("a"), new CommandPause(this->mainstream));
+    this->commands.emplace(new CommandKey("a"),  new CommandPause(this->mainstream));
     // r : Start record
-    this->commands.emplace(new CommandKey("r"), new CommandRecord(this->mainstream));
+    this->commands.emplace(new CommandKey("r"),  new CommandRecord(this->mainstream));
     // d : Start display
-    this->commands.emplace(new CommandKey("d"), new CommandDisplay(this->mainstream));
+    this->commands.emplace(new CommandKey("d"),  new CommandDisplay(this->mainstream));
     // t : Status
-    this->commands.emplace(new CommandKey("t"), new CommandStatus(this->mainstream));
+    this->commands.emplace(new CommandKey("t"),  new CommandStatus(this->mainstream));
 }
 
 void* StreamController::CommandsHandler(void *ptr) {
@@ -63,7 +60,7 @@ void* StreamController::CommandsHandler(void *ptr) {
         }
     }
     if (!key_found) {
-      g_print("Unidentified command.\n");
+      g_print("%s", "Unidentified command.\n");
     }
   }
 }
