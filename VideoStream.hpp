@@ -13,7 +13,6 @@ private:
     GstElement *pipeline, *tee;
     GstBus *bus;
     bool stop;
-
     void linkPads(GstPad *pad);
 
 public:
@@ -25,6 +24,9 @@ public:
     void addSubStream(SubVideoStream *sub, GstPadDirection direction);
     void removeSubStream(SubVideoStream sub);
     void printStatus();
+    GstBus* getBus();
+    GstElement* getPipeline();
+
 };
 
 #endif
