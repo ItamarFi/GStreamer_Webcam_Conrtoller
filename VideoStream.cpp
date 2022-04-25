@@ -1,5 +1,4 @@
 #include "VideoStream.hpp"
-#include "SubVideoStream.hpp"
 
 
 VideoStream::VideoStream() {
@@ -7,10 +6,11 @@ VideoStream::VideoStream() {
     this->stop = FALSE;
     this->tee = gst_element_factory_make ("tee", "tee");
     this->pipeline = gst_pipeline_new ("test-pipeline");
+    this->bus = gst_element_get_bus((GstElement*) this->pipeline);
 
     // link
     if (!this->pipeline || !this->tee) {
-        g_printerr ("Not all elements could be created.\n");
+        g_printerr ("%s", "Not all elements could be created.\n");
         exit(1);
     }
     gst_bin_add (GST_BIN (this->pipeline), this->tee);
@@ -24,7 +24,7 @@ VideoStream::~VideoStream() {
 void VideoStream::startPlaying() { 
     GstStateChangeReturn ret = gst_element_set_state (this->pipeline, GST_STATE_PLAYING);
     if (ret == GST_STATE_CHANGE_FAILURE) {
-        g_printerr ("Unable to set the pipeline to the playing state.\n");
+        g_printerr ("%s", "Unable to set the pipeline to the playing state.\n");
         gst_object_unref (this->pipeline);
         exit(1);
     }
@@ -34,7 +34,7 @@ void VideoStream::startPlaying() {
 void VideoStream::stopPlaying() {
     GstStateChangeReturn ret = gst_element_set_state (pipeline, GST_STATE_NULL);
     if (ret == GST_STATE_CHANGE_FAILURE) {
-        g_printerr ("Unable to set the pipeline to the null state.\n");
+        g_printerr ("%s", "Unable to set the pipeline to the null state.\n");
         gst_object_unref (pipeline);
         exit(1);
     }
@@ -44,7 +44,7 @@ void VideoStream::stopPlaying() {
 void VideoStream::pausePlaying() {
     GstStateChangeReturn ret = gst_element_set_state (pipeline, GST_STATE_PAUSED);
     if (ret == GST_STATE_CHANGE_FAILURE) {
-        g_printerr ("Unable to set the pipeline to the pausing state.\n");
+        g_printerr ("%s", "Unable to set the pipeline to the pausing state.\n");
         gst_object_unref (pipeline);
         exit(1);
     }
@@ -54,9 +54,15 @@ void VideoStream::pausePlaying() {
 
 void VideoStream::addSubStream(SubVideoStream* sub, GstPadDirection direction) {
 
+    // check if the subStream already added
+    if (gst_bin_get_by_name((GstBin*)this->pipeline, sub->getName()) != NULL) {
+        g_printerr("%s", "SubStream already exists.\n");
+        return;
+    }
+
     // save state to update the pipeline again (moved to pause automatically)
     GstState saved_state, saved_pending;
-    gst_element_get_state((GstElement *)this->pipeline, &saved_state, &saved_pending, NULL);
+    gst_element_get_state((GstElement *)this->pipeline, &saved_state, &saved_pending, 0);
     // the pipeline isn't in the final state: set the pending state after the adding
     if (saved_pending != GST_STATE_VOID_PENDING) {
         saved_state = saved_pending;
@@ -64,7 +70,7 @@ void VideoStream::addSubStream(SubVideoStream* sub, GstPadDirection direction) {
 
     // add substream to pipeline
     if (gst_bin_add(GST_BIN (this->pipeline),(GstElement *)sub->getBin()) != TRUE) {
-        g_printerr("Element could not be added.\n");
+        g_printerr("%s", "Element could not be added.\n");
         gst_object_unref (this->pipeline);
         exit(-1);
     }
@@ -83,22 +89,22 @@ void VideoStream::addSubStream(SubVideoStream* sub, GstPadDirection direction) {
         pad_src = sub->getLinkPad(direction);
         pad_sink = gst_element_get_static_pad(this->tee, "sink");
         if (pad_sink == NULL) {
-            g_print("\nCouldn't get sink pad from tee.\n");
+            g_print("%s", "\nCouldn't get sink pad from tee.\n");
             exit(-1);
         }
     }
 
     if ((pad_sink == NULL) || (pad_src == NULL)) {
-        g_printerr("NULL pad error.\n");
+        g_printerr("%s", "NULL pad error.\n");
         exit(-1);
     }
     
     GstPadLinkReturn ret = gst_pad_link (pad_src, pad_sink);
     if (ret != GST_PAD_LINK_OK) {
-        g_printerr ("Tee could not be linked to substream.\n");
+        g_printerr ("%s", "Tee could not be linked to substream.\n");
         gchar *g = g_strdup_printf("%i", (int)ret);
-        g_printerr (g);
-        g_printerr ("\n");
+        g_printerr ("%s", g);
+        g_printerr ("%s", "\n");
         gst_object_unref (this->pipeline);
         exit(-1);
     }
@@ -121,7 +127,7 @@ void VideoStream::linkPads(GstPad *pad_sink) {
 
     GstPadLinkReturn ret = gst_pad_link (pad_src, pad_sink);
     if (ret != GST_PAD_LINK_OK) {
-        g_printerr ("Tee could not be linked to substream.\n");
+        g_printerr ("%s", "Tee could not be linked to substream.\n");
         gst_object_unref (this->pipeline);
         exit(-1);
     }
@@ -131,45 +137,53 @@ void VideoStream::printStatus() {
     GstState state, pending;
 
     // print pipeline status
-    g_print("\nStates\nName\t\tState\t\tPending\n\n");
+    g_print("%s", "\nStates\nName\t\tState\t\tPending\n\n");
 
-    gst_element_get_state((GstElement *)this->pipeline, &state, &pending, NULL);
-    g_print(gst_element_get_name((GstElement *)this->pipeline));
-    g_print("\t");
-    g_print(gst_element_state_get_name(state));
-    g_print("\t\t");
-    g_print(gst_element_state_get_name(pending));
-    g_print("\n");
+    gst_element_get_state((GstElement *)this->pipeline, &state, &pending, 0);
+    g_print("%s", gst_element_get_name((GstElement *)this->pipeline));
+    g_print("%s", "\t");
+    g_print("%s", gst_element_state_get_name(state));
+    g_print("%s", "\t\t");
+    g_print("%s", gst_element_state_get_name(pending));
+    g_print("%s", "\n");
 
     // elements: name, state, pending state
     GList *childrens = ((GstBin*)this->pipeline)->children;
     while (childrens != NULL)
     {
-        gst_element_get_state((GstElement *)childrens->data, &state, &pending, NULL);
-        g_print(gst_element_get_name((GstElement *)childrens->data));
-        g_print("\t\t");
-        g_print(gst_element_state_get_name(state));
-        g_print("\t\t");
-        g_print(gst_element_state_get_name(pending));
-        g_print("\n");
+        gst_element_get_state((GstElement *)childrens->data, &state, &pending, 0);
+        g_print("%s", gst_element_get_name((GstElement *)childrens->data));
+        g_print("%s", "\t\t");
+        g_print("%s", gst_element_state_get_name(state));
+        g_print("%s", "\t\t");
+        g_print("%s", gst_element_state_get_name(pending));
+        g_print("%s", "\n");
         childrens = childrens->next;
     }
     
     // elements: source ---> sink
-    g_print("\nPads\nSource\t--->\tSink\n\n");
+    g_print("%s", "\nPads\nSource\t--->\tSink\n\n");
     childrens = ((GstBin*)this->pipeline)->children;
     while (childrens != NULL)
     {
         GList *sink_pad = ((GstElement*)childrens->data)->sinkpads;
         if (sink_pad != NULL) {
             GstPad *src_pad = gst_pad_get_peer((GstPad *)sink_pad->data);
-            g_print(gst_element_get_name((GstElement *)gst_pad_get_parent((GstPad*)src_pad)));
-            g_print("\t--->\t");
-            g_print(gst_element_get_name((GstElement *)gst_pad_get_parent((GstPad*)sink_pad->data)));
-            g_print("\n");
+            g_print("%s", gst_element_get_name((GstElement *)gst_pad_get_parent((GstPad*)src_pad)));
+            g_print("%s", "\t--->\t");
+            g_print("%s", gst_element_get_name((GstElement *)gst_pad_get_parent((GstPad*)sink_pad->data)));
+            g_print("%s", "\n");
 
         }
         childrens = childrens->next;
     }
 
+}
+
+GstBus* VideoStream::getBus() {
+    return this->bus;
+}
+
+GstElement* VideoStream::getPipeline() {
+    return this->pipeline;
 }
