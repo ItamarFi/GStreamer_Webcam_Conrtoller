@@ -42,3 +42,7 @@ GstPad *SubVideoStream::getLinkPad(GstPadDirection direction) {
     gst_object_unref (p);
     return ghost_p;
 }
+
+const gchar* SubVideoStream::getName() {
+    return ((GstObject*)this->bin)->name;
+}
