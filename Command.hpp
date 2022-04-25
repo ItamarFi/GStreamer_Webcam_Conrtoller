@@ -25,11 +25,55 @@ public:
     void execute() override;
 };
 
-// class CommandStatus : public ICommand
-// {
-// public:
-//     CommandStatus(VideoStream *stream);
-//     void execute() override;
-// };
+class CommandStop : public ICommand
+{
+public:
+    CommandStop(VideoStream *stream);
+    void execute() override;
+};
+
+class CommandPause : public ICommand
+{
+public:
+    CommandPause(VideoStream *stream);
+    void execute() override;
+};
+
+class CommandRecord : public ICommand
+{
+private:
+    SubVideoStream* record;  
+
+public:
+    CommandRecord(VideoStream *stream);
+    void execute() override;
+};
+
+class CommandDisplay : public ICommand
+{
+private:
+    SubVideoStream* display;  
+
+public:
+    CommandDisplay(VideoStream *stream);
+    void execute() override;
+};
+
+class CommandStatus : public ICommand
+{
+public:
+    CommandStatus(VideoStream *stream);
+    void execute() override;
+};
+
+class CommandConnectCam: public ICommand
+{
+private:
+    SubVideoStream* webcam;  
+
+public:
+    CommandConnectCam(VideoStream *stream);
+    void execute() override;
+};
 
 #endif
