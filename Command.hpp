@@ -59,6 +59,18 @@ public:
     void execute() override;
 };
 
+
+class CommandSaveAsFrames : public ICommand
+{
+private:
+    SubVideoStream* frames;  
+
+public:
+    CommandSaveAsFrames(VideoStream *stream);
+    void execute() override;
+};
+
+
 class CommandStatus : public ICommand
 {
 public:
