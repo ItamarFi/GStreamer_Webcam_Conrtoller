@@ -24,6 +24,7 @@ public:
     void addSubStream(SubVideoStream *sub, GstPadDirection direction);
     void removeSubStream(SubVideoStream sub);
     void printStatus();
+    void printChildrenElementsState();
     GstBus* getBus();
     GstElement* getPipeline();
 
