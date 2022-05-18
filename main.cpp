@@ -4,7 +4,6 @@
 #include <gst/gst.h>
 #include "VideoStream.hpp"
 #include "StreamUI.hpp"
-
 #include <gtkmm.h>
 
 struct _CustomData {
@@ -20,10 +19,10 @@ int main (int argc, char **argv)
 
   /* Create data */  
   _CustomData data; 
+
   data.vs = new VideoStream();
 
   StreamWindowUI window(data.vs);
 
   return app->run(window);
-
 }
