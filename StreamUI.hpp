@@ -25,6 +25,8 @@ private:
     /* data */
 public:
     StreamWindowUI(VideoStream *m_vs);
+    guintptr window_handle;
+    VideoStream *m_vs;
     virtual ~StreamWindowUI();
 protected:
     // signal handlers
@@ -41,11 +43,11 @@ protected:
     CommandPause *pause;
     CommandStop *stop;
     CommandRecord *record;
+    CommandSaveAsFrames *frames;
     CommandDisplay *display;
 
     // UI
     Gtk::VBox m_vbox;
-    // Gtk::Window screen;
     Gtk::DrawingArea* video_window;
     GstVideoOverlay* overlay;
     Gtk::HButtonBox m_button_box;
@@ -56,8 +58,8 @@ protected:
     Gtk::Button m_display_button;
 
     // VideoStream - contains Gstreamer elements
-    VideoStream *m_vs;
-    guintptr window_handle;
+    // VideoStream *m_vs;
+    // guintptr window_handle;
     GstElement *glimagesink;
     GstBus *m_vs_bus;
 };
