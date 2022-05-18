@@ -5,7 +5,7 @@ VideoStream::VideoStream() {
     // init
     this->stop = FALSE;
     this->tee = gst_element_factory_make ("tee", "tee");
-    this->pipeline = gst_pipeline_new ("test-pipeline");
+    this->pipeline = gst_pipeline_new ("gui_pipeline");
     this->bus = gst_element_get_bus((GstElement*) this->pipeline);
 
     // link
@@ -75,7 +75,7 @@ void VideoStream::addSubStream(SubVideoStream* sub, GstPadDirection direction) {
         exit(-1);
     }
 
-    gst_bin_sync_children_states(GST_BIN (this->pipeline));
+    // gst_bin_sync_children_states(GST_BIN (this->pipeline));
 
     // create pads
     GstPad *pad_src, *pad_sink;
@@ -105,7 +105,8 @@ void VideoStream::addSubStream(SubVideoStream* sub, GstPadDirection direction) {
         gchar *g = g_strdup_printf("%i", (int)ret);
         g_printerr ("%s", g);
         g_printerr ("%s", "\n");
-        gst_object_unref (this->pipeline);
+        // TODO: fix unref stuff...
+        // gst_object_unref (this->pipeline);
         exit(-1);
     }
     
@@ -115,9 +116,16 @@ void VideoStream::addSubStream(SubVideoStream* sub, GstPadDirection direction) {
         gst_element_link((GstElement *)sub->getBin(), this->tee);
     }
 
-    gst_element_set_state((GstElement *)this->pipeline, saved_state);
-    // gst_bin_sync_children_states(GST_BIN (this->pipeline));
-    
+    // GstState saved_state, saved_pending;
+    // gst_element_get_state((GstElement *)this->pipeline, &saved_state, &saved_pending, 0);
+    // // the pipeline isn't in the final state: set the pending state after the adding
+    // if (saved_pending != GST_STATE_VOID_PENDING) {
+    //     saved_state = saved_pending;
+    // }
+
+    gst_element_set_state((GstElement *)sub->getBin(), saved_state); 
+    gst_element_set_state((GstElement *)this->pipeline, saved_state); 
+    gst_bin_sync_children_states(GST_BIN (this->pipeline));
 }
 
 void VideoStream::linkPads(GstPad *pad_sink) {
@@ -186,4 +194,27 @@ GstBus* VideoStream::getBus() {
 
 GstElement* VideoStream::getPipeline() {
     return this->pipeline;
+}
+
+void VideoStream::printChildrenElementsState() {
+    GList *childrens = ((GstBin*)this->pipeline)->children;
+    GstState state, pending;
+    while (childrens != nullptr) {
+        gst_element_get_state((GstElement*)childrens->data, &state, &pending, ((GstElement *)childrens->data)->start_time);
+        const gchar *state_name = gst_element_state_get_name(state);
+        const gchar *pending_name = gst_element_state_get_name(pending);
+        const gchar *children_name = gst_element_get_name((GstElement *)childrens->data);
+
+        // g_print("Name: %s\tState: %s\t\tPending: %s", *children_name, *state_name, *pending_name);
+        g_print("Name: ");
+        g_print("%s", children_name);
+        g_print("\t");
+        g_print("State: ");
+        g_print("%s", state_name);
+        g_print("\t");
+        g_print("Pend: ");
+        g_print("%s", pending_name);
+        g_print("\n");
+        childrens = childrens->next;
+    }
 }
