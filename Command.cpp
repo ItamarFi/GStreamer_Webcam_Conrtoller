@@ -1,15 +1,5 @@
 #include "Command.hpp"
 
-// commands:
-// start                v
-// stop                 v
-// pause                v
-// show elements?
-// record               v
-// display              v
-// remove record
-// remove display
-
 ICommand::ICommand(VideoStream *stream) {
     this->mainstream = stream;
 }
@@ -54,6 +44,8 @@ CommandConnectCam::CommandConnectCam (VideoStream *stream) : ICommand(stream) {
       this->description = "Connect to Webcam";
         
       std::vector<GstElement*> webcam_elements;
+      // nvarguscamerasrc / nvgstcapture
+      // webcam_elements.push_back(gst_element_factory_make ("nvarguscamerasrc", "webcam_source"));
       webcam_elements.push_back(gst_element_factory_make ("v4l2src", "webcam_source"));
       
       const gchar *webcam_name = "webcam";
@@ -69,6 +61,27 @@ CommandRecord::CommandRecord  (VideoStream *stream) : ICommand(stream) {
       this->description = "Start record";
 
       std::vector<GstElement*> record_elements;
+
+      // record_elements.push_back(gst_element_factory_make("queue", "queue_record"));
+      // record_elements.push_back(gst_element_factory_make("x264enc", NULL));
+      // record_elements.push_back(gst_element_factory_make("mp4mux",  NULL));
+      // record_elements.push_back(gst_element_factory_make ("filesink", "sink_record"));
+	    // g_object_set(record_elements[2], "location", "record.mp4", NULL);
+      // g_object_set(record_elements[1], "tune", 4, NULL);
+
+
+
+      // record_elements.push_back(gst_element_factory_make("queue", "queue_record"));
+      // record_elements.push_back(gst_element_factory_make("nvdsosd", NULL));
+      // record_elements.push_back(gst_element_factory_make("nvvideoconvert", NULL));
+      // record_elements.push_back(gst_element_factory_make("video/x-raw(memory:NVMM),format=NV12", NULL));
+      // record_elements.push_back(gst_element_factory_make("nvv4l2h264enc", NULL));
+      // record_elements.push_back(gst_element_factory_make("h264parse", NULL));
+      // record_elements.push_back(gst_element_factory_make("qtmux", NULL));
+      // record_elements.push_back(gst_element_factory_make("filesink", "sink_record"));
+	    // g_object_set(record_elements[7], "location", "record.mp4", NULL);
+
+      // TODO: find the right way to stream and record avoiding buffers and qos. check pads capabilities. nvcamerasrc vs v4l2src. integration with Jeston Nano.
       record_elements.push_back(gst_element_factory_make("queue", "queue_record"));
       record_elements.push_back(gst_element_factory_make("videoconvert", NULL));
       record_elements.push_back(gst_element_factory_make("videoscale", NULL));
@@ -83,6 +96,7 @@ CommandRecord::CommandRecord  (VideoStream *stream) : ICommand(stream) {
   }
 
 void CommandRecord::execute() {
+  // g_print("\nDebug: Record\n");
     this->mainstream->addSubStream(this->record, GST_PAD_SINK);
 }
 
@@ -101,6 +115,25 @@ CommandDisplay::CommandDisplay(VideoStream *stream) : ICommand(stream) {
 
 void CommandDisplay::execute() {
         this->mainstream->addSubStream(this->display, GST_PAD_SINK);
+}
+
+CommandSaveAsFrames::CommandSaveAsFrames (VideoStream *stream) : ICommand(stream) {
+        this->mainstream = stream;
+        this->description = "Save stream as separated frames in JPEG files";
+
+        std::vector<GstElement*> frames_elements;
+        frames_elements.push_back(gst_element_factory_make("queue", "queue_frames"));
+        frames_elements.push_back(gst_element_factory_make("jpegenc", NULL));
+        frames_elements.push_back(gst_element_factory_make("multifilesink", NULL));
+        g_object_set(frames_elements[2], "location", "frame_%06d.jpg", NULL);
+
+        const gchar *frames_name = "frames";
+        this->frames = new SubVideoStream(frames_elements, frames_name);
+
+}
+
+void CommandSaveAsFrames::execute() {
+        this->mainstream->addSubStream(this->frames, GST_PAD_SINK);
 }
 
 CommandStatus::CommandStatus(VideoStream *stream) : ICommand(stream) {
