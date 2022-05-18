@@ -21,6 +21,98 @@ gboolean StreamWindowUI::on_display_draw()
     return FALSE;
 }
 
+static void cb_message (GstBus *bus, GstMessage *msg, VideoStream *data) {
+
+    switch (GST_MESSAGE_TYPE (msg)) {
+
+        case GST_MESSAGE_ERROR:
+            GError *err;
+            gchar *debug;
+
+            gst_message_parse_error (msg, &err, &debug);
+            g_print ("Error: %s\n", err->message);
+            g_error_free (err);
+            g_free (debug);
+
+            gst_element_set_state ((GstElement*)data->getPipeline(), GST_STATE_READY);
+            // g_main_loop_quit (data->loop);
+            break;
+        
+        case GST_MESSAGE_WARNING:
+            GError *gerror;
+            gst_message_parse_warning (msg, &gerror, NULL);
+            g_print("\t%s\n", gerror->message);
+            g_print("\tSource of warning: %s (%s)\n", ((GstObject *)msg->src)->name, gst_element_get_name((GstElement*)gst_pad_get_parent((GstPad*)msg->src)));
+
+            g_error_free(gerror);
+
+            break;
+        
+        case GST_MESSAGE_STATE_CHANGED:
+            // g_print("\t<<debug note: GST_MESSAGE_STATE_CHANGED activated>>\n");
+            
+            // GstState old_state, new_state;
+            // gst_message_parse_state_changed (msg, &old_state, &new_state, NULL);
+            // g_print ("\tElement %s changed state from %s to %s.\n",
+            // GST_OBJECT_NAME (msg->src),
+            // gst_element_state_get_name (old_state),
+            // gst_element_state_get_name (new_state));
+            break;
+
+
+        case GST_MESSAGE_EOS:
+            // g_print("\t<<debug note: GST_MESSAGE_EOS activated>>\n");
+
+            /* end-of-stream */
+            gst_element_set_state ((GstElement*)data->getPipeline(), GST_STATE_READY);
+            // g_main_loop_quit (data->loop);
+            break;
+        
+        case GST_MESSAGE_BUFFERING: {
+            // g_print("\t<<debug note: GST_MESSAGE_BUFFERING activated>>\n");
+
+            gint percent = 0;
+
+            /* If the stream is live, we do not care about buffering. */
+            //   if (data->is_live) break;
+
+            gst_message_parse_buffering (msg, &percent);
+            g_print ("Buffering (%3d%%)\r", percent);
+            /* Wait until buffering is complete before start/resume playing */
+            if (percent < 100)
+                gst_element_set_state ((GstElement*)data->getPipeline(), GST_STATE_PAUSED);
+            else
+                gst_element_set_state ((GstElement*)data->getPipeline(), GST_STATE_PLAYING);
+            break;
+        }
+        
+        case GST_MESSAGE_CLOCK_LOST:
+
+            /* Get a new clock */
+            gst_element_set_state ((GstElement*)data->getPipeline(), GST_STATE_PAUSED);
+            gst_element_set_state ((GstElement*)data->getPipeline(), GST_STATE_PLAYING);
+            break;
+            default:
+            /* Unhandled message */
+            break;
+        
+        case GST_MESSAGE_QOS:
+            // g_print("Source of qos: %s (%s)\n", ((GstObject *)msg->src)->name, gst_element_get_name((GstElement*)gst_pad_get_parent((GstPad*)msg->src)));
+            // gst_event_parse_qos
+            
+            break;
+
+
+        case GST_MESSAGE_STREAM_STATUS:
+            const GValue *gvalue = gst_message_get_stream_status_object (msg);
+            gchar* strVal = g_strdup_value_contents (gvalue);
+            // g_print ("\tgvalue: %s\n", strVal);
+            free (strVal);
+            break;        
+    }
+}
+
+
 static GstBusSyncReply bus_sync_handler(GstBus     *bus,
                                         GstMessage *message,
                                         guintptr &window_handle)
@@ -43,7 +135,6 @@ static GstBusSyncReply bus_sync_handler(GstBus     *bus,
     {
         g_warning("Should have gotten a video window handle by now\n");
     }
-    g_print("<<bus_sync_handler>>\n");
 }
 
 
@@ -67,18 +158,25 @@ StreamWindowUI::StreamWindowUI(VideoStream *vs) :
     m_vs_bus = gst_element_get_bus((GstElement *) m_vs->getPipeline());
     gst_bus_set_sync_handler(m_vs_bus, (GstBusSyncHandler)bus_sync_handler,
                              &window_handle, NULL);
-
     gst_bus_add_signal_watch(m_vs_bus);
 
+    g_signal_connect (m_vs_bus, "message", G_CALLBACK (cb_message), &m_vs);
+
+
     std::vector<GstElement*> window_sink_elements;
-    glimagesink = gst_element_factory_make("glimagesink", "window_sink");
-    window_sink_elements.push_back(glimagesink);
-    const gchar *window_sink_name = "window_sink";
+
+    window_sink_elements.push_back(gst_element_factory_make("queue", "queue_window"));
+    window_sink_elements.push_back(gst_element_factory_make("xvimagesink", "sink_window"));
+    // "glimagesink"?
+
+
+    const gchar *window_sink_name = "window";
     m_vs->addSubStream(new SubVideoStream(window_sink_elements, window_sink_name), GST_PAD_SINK);
-    overlay = (GstVideoOverlay*) (gst_bin_get_by_name ((GstBin *) m_vs->getPipeline(), "window_sink"));
+    // overlay = (GstVideoOverlay*) (gst_bin_get_by_name ((GstBin *) m_vs->getPipeline(), "sink_window"));
 
     video_window = new Gtk::DrawingArea();
     video_window->signal_realize().connect( sigc::mem_fun( *this, &StreamWindowUI::on_display_realize ));
+    video_window->set_double_buffered(false);
     // video_window->signal_draw().connect( sigc::mem_fun( *this, &StreamWindowUI::on_display_draw ));
 
     add(m_vbox);
@@ -88,13 +186,14 @@ StreamWindowUI::StreamWindowUI(VideoStream *vs) :
     m_button_box.pack_start(m_pause_button);
     m_button_box.pack_start(m_stop_button);
     m_button_box.pack_start(m_record_button);
-    // m_button_box.pack_start(m_display_button);
+    m_button_box.pack_start(m_display_button);
 
     // set commands
     play = new CommandStart(m_vs);
     pause = new CommandPause(m_vs);
     stop = new CommandStop(m_vs);
     record = new CommandRecord(m_vs);
+    frames = new CommandSaveAsFrames(m_vs);
     display = new CommandDisplay(m_vs);
 
 
@@ -119,25 +218,32 @@ StreamWindowUI::~StreamWindowUI()
 
 void StreamWindowUI::on_button_play()
 {
+    g_print("-------- PLAY --------\n");
     play->execute();
 }
 
 void StreamWindowUI::on_button_pause()
 {
+    g_print("-------- PAUSE --------\n");
     pause->execute();
 }
 
 void StreamWindowUI::on_button_stop()
 {
+    g_print("-------- STOP --------\n");
     stop->execute();
 }
 
 void StreamWindowUI::on_button_display()
 {
-    display->execute();
+    g_print("-------- DISPLAY --------\n");
+    this->m_vs->printStatus();
+    // display->execute();
 }
 
 void StreamWindowUI::on_button_record()
 {
-    record->execute();
+    g_print("-------- RECORD --------\n");
+    // record->execute();
+    frames->execute();
 }
